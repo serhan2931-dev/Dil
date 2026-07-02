@@ -1,0 +1,63 @@
+-- [[ ECHO SCRIPTER V19 - HIGH PERFORMANCE BUILD ]] --
+
+local Flags = {
+    AutoFarm = false, AutoWater = false, AutoBuy = false, AutoReplant = false,
+    EventCollector = false, SmoothTween = true, SpeedToggle = false, NoClip = false, FPSBoost = false, NightSteal = false
+}
+
+local CustomSpeed = 45
+local NextEventEstimate = "Calibrating..."
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+-- Cache frequently accessed parts to save memory
+local Character, HRP
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    HRP = char:WaitForChild("HumanoidRootPart", 5)
+end)
+if LocalPlayer.Character then
+    Character = LocalPlayer.Character
+    HRP = Character:FindFirstChild("HumanoidRootPart")
+end
+
+-- --- LIGHTWEIGHT PREDICTOR ---
+task.spawn(function()
+    while true do
+        pcall(function()
+            local serverTime = workspace.DistributedGameTime
+            local timeRemaining = 900 - (serverTime % 900)
+            NextEventEstimate = string.format("%02dm %02ds", math.floor(timeRemaining / 60), math.floor(timeRemaining % 60))
+        end)
+        task.wait(2) -- Increased delay to save CPU cycles
+    end
+end)
+
+local function IsNight()
+    local clockTime = Lighting.ClockTime
+    return clockTime >= 18 or clockTime <= 6
+end
+
+-- --- CACHED PROXIMITY PROMPT ENGINE ---
+-- Instead of scanning everything, we selectively query objects near the player
+local function GetNearbyPrompts(keyword)
+    local targets = {}
+    if not HRP then return targets end
+    
+    -- Optimize scan area by looking directly in main workspace containers if possible
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("ProximityPrompt") and string.find(string.lower(obj.Name), keyword) then
+            table.insert(targets, obj)
+        elseif string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
+            for _, subObj in ipairs(obj:GetDescendants()) do
+                if subObj:IsA("ProximityPrompt") and string.find(string.lower(subObj.Name), keyword) then
+                    table.insert(targets, subObj)
+                end
+            end
+        end
+    end
+    return targets
