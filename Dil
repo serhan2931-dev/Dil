@@ -1,8 +1,9 @@
--- [[ ECHO SCRIPTER V19 - HIGH PERFORMANCE BUILD ]] --
+-- [[ ECHO SCRIPTER V20 - HARDCORE PERFORMANCE & FPS BOOST ]] --
 
 local Flags = {
     AutoFarm = false, AutoWater = false, AutoBuy = false, AutoReplant = false,
-    EventCollector = false, SmoothTween = true, SpeedToggle = false, NoClip = false, FPSBoost = false, NightSteal = false
+    EventCollector = false, SmoothTween = true, SpeedToggle = false, NoClip = false, 
+    FPSBoost = false, NightSteal = false
 }
 
 local CustomSpeed = 45
@@ -13,8 +14,8 @@ local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
+local Terrain = Workspace:FindFirstChildWhichIsA("Terrain")
 
--- Cache frequently accessed parts to save memory
 local Character, HRP
 LocalPlayer.CharacterAdded:Connect(function(char)
     Character = char
@@ -25,6 +26,41 @@ if LocalPlayer.Character then
     HRP = Character:FindFirstChild("HumanoidRootPart")
 end
 
+-- --- HARDCORE FPS ENGINE (REAL-TIME GRAPHICS REDUCER) ---
+local function ApplyFPSBoost()
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    
+    -- Global Lighting Reductions
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+    Lighting.Brightness = 1
+    
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("DepthOfFieldEffect") or obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or obj:IsA("SunRaysEffect") then
+            obj.Enabled = false
+        end
+    end
+    
+    if Terrain then
+        Terrain.WaterWaveSize = 0
+        Terrain.WaterWaveSpeed = 0
+        Terrain.WaterReflectance = 0
+        Terrain.WaterDetail = Enum.WaterDetailSetting.Low
+    end
+
+    -- Drastic Texture/Material Stripping to clear CPU/GPU Cache
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        if v:IsA("BasePart") and not v:IsA("MeshPart") then
+            v.Material = Enum.Material.SmoothPlastic
+            v.Reflectance = 0
+        elseif v:IsA("Texture") or v:IsA("Decal") then
+            v:Destroy()
+        elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            v.Enabled = false
+        end
+    end
+end
+
 -- --- LIGHTWEIGHT PREDICTOR ---
 task.spawn(function()
     while true do
@@ -33,7 +69,7 @@ task.spawn(function()
             local timeRemaining = 900 - (serverTime % 900)
             NextEventEstimate = string.format("%02dm %02ds", math.floor(timeRemaining / 60), math.floor(timeRemaining % 60))
         end)
-        task.wait(2) -- Increased delay to save CPU cycles
+        task.wait(2)
     end
 end)
 
@@ -42,22 +78,105 @@ local function IsNight()
     return clockTime >= 18 or clockTime <= 6
 end
 
--- --- CACHED PROXIMITY PROMPT ENGINE ---
--- Instead of scanning everything, we selectively query objects near the player
-local function GetNearbyPrompts(keyword)
-    local targets = {}
-    if not HRP then return targets end
-    
-    -- Optimize scan area by looking directly in main workspace containers if possible
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        if obj:IsA("ProximityPrompt") and string.find(string.lower(obj.Name), keyword) then
-            table.insert(targets, obj)
-        elseif string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
-            for _, subObj in ipairs(obj:GetDescendants()) do
-                if subObj:IsA("ProximityPrompt") and string.find(string.lower(subObj.Name), keyword) then
-                    table.insert(targets, subObj)
+-- --- OPTIMIZED AUTOMATION RUNNER ---
+task.spawn(function()
+    while true do
+        if Flags.NightSteal and IsNight() then
+            pcall(function()
+                if HRP then
+                    for _, obj in ipairs(Workspace:GetChildren()) do
+                        if string.find(string.lower(obj.Name), "plot") or string.find(string.lower(obj.Name), "garden") then
+                            for _, prompt in ipairs(obj:GetDescendants()) do
+                                if prompt:IsA("ProximityPrompt") and string.find(string.lower(prompt.Parent.Name), "harvest") then
+                                    HRP.CFrame = prompt.Parent.CFrame * CFrame.new(0, 2, 0)
+                                    task.wait(0.1)
+                                    fireproximityprompt(prompt)
+                                    task.wait(0.1)
+                                end
+                            end
+                        end
+                    end
                 end
-            end
+            end)
         end
+
+        if Flags.EventCollector and HRP then
+            pcall(function()
+                for _, obj in ipairs(Workspace:GetChildren()) do
+                    if string.find(string.lower(obj.Name), "seed") or string.find(string.lower(obj.Name), "moon") then
+                        local target = obj:IsA("Model") and obj:GetModelCFrame() or obj.CFrame
+                        HRP.CFrame = target
+                        for _, p in ipairs(obj:GetDescendants()) do 
+                            if p:IsA("ProximityPrompt") then fireproximityprompt(p) end 
+                        end
+                        break
+                    end
+                end
+            end)
+        end
+        task.wait(0.6)
     end
-    return targets
+end)
+
+-- --- MOVEMENT ENGINE ---
+game:GetService("RunService").Heartbeat:Connect(function()
+    pcall(function()
+        if Character and Flags.SpeedToggle and Character:FindFirstChild("Humanoid") then 
+            Character.Humanoid.WalkSpeed = CustomSpeed 
+        end
+    end)
+end)
+
+-- --- PERFECTLY CENTERED UI LAYOUT ---
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 420, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -210, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Thickness = 2
+task.spawn(function()
+    local hue = 0
+    game:GetService("RunService").RenderStepped:Connect(function()
+        hue = (hue + 1) % 360
+        UIStroke.Color = Color3.fromHSV(hue / 360, 0.8, 1)
+    end)
+end)
+
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(0.92, 0, 0.72, 0)
+Scroll.Position = UDim2.new(0.04, 0, 0.14, 0)
+Scroll.CanvasSize = UDim2.new(0, 0, 3.2, 0)
+Scroll.BackgroundTransparency = 1
+
+local function AddMenuButton(text, pos, flagKey, customCallback)
+    local btn = Instance.new("TextButton", Scroll)
+    btn.Size = UDim2.new(0.9, 0, 0, 42)
+    btn.Position = pos
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    
+    btn.MouseButton1Down:Connect(function()
+        Flags[flagKey] = not Flags[flagKey]
+        btn.BackgroundColor3 = Flags[flagKey] and Color3.fromRGB(46, 139, 87) or Color3.fromRGB(45, 45, 45)
+        if customCallback and Flags[flagKey] then customCallback() end
+    end)
+end
+
+-- --- BUTTON PACK CONFIG ---
+AddMenuButton("📈 FORCED FPS BOOST & LOW GRAPHICS", UDim2.new(0.05, 0, 0, 0), "FPSBoost", ApplyFPSBoost)
+AddMenuButton("🌙 NIGHT STEALER (AUTO)", UDim2.new(0.05, 0, 0, 50), "NightSteal")
+AddMenuButton("⚡ EVENT SNIPER", UDim2.new(0.05, 0, 0, 100), "EventCollector")
+AddMenuButton("👟 SPEED HACK (45)", UDim2.new(0.05, 0, 0, 150), "SpeedToggle")
+
+local ToggleButton = Instance.new("TextButton", ScreenGui)
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Position = UDim2.new(0.02, 0, 0.4, 0)
+ToggleButton.Text = "ECHO"
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(1, 0)
+ToggleButton.MouseButton1Down:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
